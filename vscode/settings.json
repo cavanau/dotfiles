@@ -1,0 +1,27 @@
+{
+  "editor.fontFamily": "'0xProto Regular', 'Symbols Nerd Font Mono', monospace",
+  "editor.fontSize": 16,
+  "editor.lineNumbers": "on",
+  "editor.insertSpaces": true,
+  "editor.tabSize": 8,
+  "editor.detectIndentation": false,
+  "editor.renderWhitespace": "all",
+  "editor.minimap.enabled": false,
+  "explorer.confirmDragAndDrop": false,
+
+  "editor.inlayHints.enabled": "offUnlessPressed",
+  "rust-analyzer.inlayHints.typeHints.enable": true,
+  "rust-analyzer.inlayHints.parameterHints.enable": true,
+  "rust-analyzer.inlayHints.chainingHints.enable": true,
+  "rust-analyzer.inlayHints.lifetimeElisionHints.enable": "always",
+
+  "workbench.colorTheme": "Bluloco Dark",
+  "workbench.secondarySideBar.defaultVisibility": "hidden",
+
+  "files.trimTrailingWhitespace": true,
+
+  "slint.preview.providedByEditor": true,
+  "svelte.enable-ts-plugin": true,
+
+  "breadcrumbs.enabled": false
+}

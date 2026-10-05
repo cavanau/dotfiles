@@ -1,0 +1,2 @@
+uloco.theme-bluloco-dark
+rust-lang.rust-analyzer
