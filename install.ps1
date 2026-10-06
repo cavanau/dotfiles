@@ -41,26 +41,46 @@ try {
     }
 
     $vscodeSettings = Join-Path $env:APPDATA 'Code\User\settings.json'
+    $codiumSettings = Join-Path $env:APPDATA 'VSCodium\User\settings.json'
     $emacsInit = Join-Path $HOME '.emacs'
-    Copy-WithBackup (Join-Path $repoRoot 'vscode/settings.json') $vscodeSettings
-    Copy-WithBackup (Join-Path $repoRoot 'emacs/init.el') $emacsInit
 
     $codeCommand = Get-Command code -ErrorAction SilentlyContinue
-    if ($codeCommand) {
-        Get-Content -LiteralPath (Join-Path $repoRoot 'vscode/extensions.txt') |
-            Where-Object { $_.Trim() -and -not $_.Trim().StartsWith('#') } |
-            ForEach-Object {
-                & $codeCommand.Source --install-extension $_.Trim()
-                if ($LASTEXITCODE -ne 0) {
-                    Write-Warning "VS Code could not install extension: $_"
-                }
-            }
-    }
-    else {
-        Write-Host 'The code command was not found. Open VS Code and install the extensions listed in vscode/extensions.txt.'
+    $codiumCommand = Get-Command codium -ErrorAction SilentlyContinue
+    $hasCode = $codeCommand -or (Test-Path -LiteralPath (Split-Path -Parent $vscodeSettings))
+    $hasCodium = $codiumCommand -or (Test-Path -LiteralPath (Split-Path -Parent $codiumSettings))
+    if (-not $hasCode -and -not $hasCodium) {
+        $hasCode = $true
     }
 
-    Write-Host 'Dotfiles installation complete. Restart VS Code and Emacs to load the new settings.'
+    if ($hasCode) {
+        Copy-WithBackup (Join-Path $repoRoot 'vscode/settings.json') $vscodeSettings
+    }
+    if ($hasCodium) {
+        Copy-WithBackup (Join-Path $repoRoot 'vscode/settings.json') $codiumSettings
+    }
+    Copy-WithBackup (Join-Path $repoRoot 'emacs/init.el') $emacsInit
+
+    foreach ($editor in @(
+        @{ Name = 'VS Code'; Command = $codeCommand; Enabled = $hasCode },
+        @{ Name = 'VSCodium'; Command = $codiumCommand; Enabled = $hasCodium }
+    )) {
+        if ($editor.Command) {
+            Get-Content -LiteralPath (Join-Path $repoRoot 'vscode/extensions.txt') |
+                Where-Object { $_.Trim() -and -not $_.Trim().StartsWith('#') } |
+                ForEach-Object {
+                    & $editor.Command.Source --install-extension $_.Trim()
+                    if ($LASTEXITCODE -ne 0) {
+                        Write-Warning "$($editor.Name) could not install extension: $_"
+                    }
+                }
+            }
+        elseif ($editor.Enabled) {
+            $cliName = if ($editor.Name -eq 'VS Code') { 'code' } else { 'codium' }
+            Write-Host "The $cliName command was not found. Open $($editor.Name) and install extensions listed in vscode/extensions.txt."
+        }
+    }
+
+    Write-Host 'Dotfiles installation complete. Restart VS Code or VSCodium and Emacs to load the new settings.'
 }
 finally {
     if ($tempRoot -and (Test-Path -LiteralPath $tempRoot)) {

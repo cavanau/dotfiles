@@ -36,27 +36,57 @@ backup_and_copy() {
 case "$(uname -s)" in
   Darwin)
     vscode_settings="$HOME/Library/Application Support/Code/User/settings.json"
+    codium_settings="$HOME/Library/Application Support/VSCodium/User/settings.json"
     emacs_init="$HOME/.emacs.d/init.el"
     ;;
   *)
     vscode_settings="$HOME/.config/Code/User/settings.json"
+    codium_settings="$HOME/.config/VSCodium/User/settings.json"
     emacs_init="$HOME/.emacs.d/init.el"
     ;;
 esac
 
-backup_and_copy "$repo_root/vscode/settings.json" "$vscode_settings"
-backup_and_copy "$repo_root/emacs/init.el" "$emacs_init"
-
-if command -v code >/dev/null 2>&1; then
-  while IFS= read -r extension; do
-    [[ -z "$extension" || "$extension" == \#* ]] && continue
-    code --install-extension "$extension" || echo "VS Code could not install extension: $extension" >&2
-  done < "$repo_root/vscode/extensions.txt"
-else
-  echo 'The code command was not found. Open VS Code and install the extensions listed in vscode/extensions.txt.'
+has_code=false
+has_codium=false
+if command -v code >/dev/null 2>&1 || [[ -d "$(dirname "$vscode_settings")" ]]; then
+  has_code=true
+fi
+if command -v codium >/dev/null 2>&1 || [[ -d "$(dirname "$codium_settings")" ]]; then
+  has_codium=true
+fi
+if [[ "$has_code" == false && "$has_codium" == false ]]; then
+  has_code=true
 fi
 
-echo 'Dotfiles installation complete. Restart VS Code and Emacs to load the new settings.'
+if [[ "$has_code" == true ]]; then
+  backup_and_copy "$repo_root/vscode/settings.json" "$vscode_settings"
+fi
+if [[ "$has_codium" == true ]]; then
+  backup_and_copy "$repo_root/vscode/settings.json" "$codium_settings"
+fi
+backup_and_copy "$repo_root/emacs/init.el" "$emacs_init"
+
+install_extensions() {
+  local cli="$1"
+  local editor="$2"
+  if ! command -v "$cli" >/dev/null 2>&1; then
+    echo "The $cli command was not found. Open $editor and install extensions listed in vscode/extensions.txt."
+    return 0
+  fi
+  while IFS= read -r extension; do
+    [[ -z "$extension" || "$extension" == \#* ]] && continue
+    "$cli" --install-extension "$extension" || echo "$editor could not install extension: $extension" >&2
+  done < "$repo_root/vscode/extensions.txt"
+}
+
+if [[ "$has_code" == true ]]; then
+  install_extensions code 'VS Code'
+fi
+if [[ "$has_codium" == true ]]; then
+  install_extensions codium VSCodium
+fi
+
+echo 'Dotfiles installation complete. Restart VS Code or VSCodium and Emacs to load the new settings.'
 
 if [[ -n "$temp_root" ]]; then
   rm -rf "$temp_root"

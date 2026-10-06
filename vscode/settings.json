@@ -7,6 +7,8 @@
   "editor.detectIndentation": false,
   "editor.renderWhitespace": "all",
   "editor.minimap.enabled": false,
+  "editor.wordWrap": "wordWrapColumn",
+  "editor.wordWrapColumn": 100
   "explorer.confirmDragAndDrop": false,
 
   "editor.inlayHints.enabled": "offUnlessPressed",
