@@ -8,8 +8,13 @@
   "editor.renderWhitespace": "all",
   "editor.minimap.enabled": false,
   "editor.wordWrap": "wordWrapColumn",
-  "editor.wordWrapColumn": 100
+  "editor.wordWrapColumn": 100,
   "explorer.confirmDragAndDrop": false,
+
+  "cmake.configureOnOpen": false,
+  "cmake.configureOnEdit": false,
+  "cmake.automaticReconfigure": false,
+  "cmake.useCMakePresets": "never",
 
   "editor.inlayHints.enabled": "offUnlessPressed",
   "rust-analyzer.inlayHints.typeHints.enable": true,
