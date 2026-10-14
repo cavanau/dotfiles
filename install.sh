@@ -1,93 +1,60 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_url='https://github.com/cavanau/dotfiles.git'
-script_dir=''
-if [[ -n "${BASH_SOURCE[0]:-}" ]]; then
-  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd || true)"
-fi
-
-repo_root="$script_dir"
-temp_root=''
-if [[ ! -f "$repo_root/vscode/settings.json" || ! -f "$repo_root/emacs/init.el" ]]; then
-  command -v git >/dev/null 2>&1 || {
-    echo 'Git is required. Install Git, then rerun this installer.' >&2
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+for file in vscode/settings.json vscode/extensions.txt emacs/init.el; do
+  if [[ ! -f "$repo_root/$file" ]]; then
+    echo "Missing $file. Run this script from a complete dotfiles checkout." >&2
     exit 1
-  }
-  temp_root="$(mktemp -d "${TMPDIR:-/tmp}/cavanau-dotfiles.XXXXXX")"
-  git clone --depth 1 "$repo_url" "$temp_root"
-  repo_root="$temp_root"
-fi
+  fi
+done
 
-backup_and_copy() {
-  local source="$1"
-  local destination="$2"
-  mkdir -p "$(dirname "$destination")"
-  if [[ -e "$destination" ]]; then
-    local stamp
-    stamp="$(date +%Y%m%d-%H%M%S)"
-    cp -p "$destination" "$destination.backup-$stamp"
-    echo "Backed up existing file: $destination.backup-$stamp"
+install_config() {
+  local source="$1" destination="$2" backup
+  mkdir -p "$(dirname -- "$destination")"
+  if [[ -e "$destination" || -L "$destination" ]]; then
+    backup="$(mktemp "$destination.backup-XXXXXX")"
+    cp -p "$destination" "$backup"
+    echo "Backup: $backup"
   fi
   cp "$source" "$destination"
   echo "Installed: $destination"
 }
 
 case "$(uname -s)" in
-  Darwin)
-    vscode_settings="$HOME/Library/Application Support/Code/User/settings.json"
-    codium_settings="$HOME/Library/Application Support/VSCodium/User/settings.json"
-    emacs_init="$HOME/.emacs.d/init.el"
-    ;;
-  *)
-    vscode_settings="$HOME/.config/Code/User/settings.json"
-    codium_settings="$HOME/.config/VSCodium/User/settings.json"
-    emacs_init="$HOME/.emacs.d/init.el"
-    ;;
+  Darwin) config_root="$HOME/Library/Application Support" ;;
+  *) config_root="${XDG_CONFIG_HOME:-$HOME/.config}" ;;
 esac
-
+code_settings="$config_root/Code/User/settings.json"
+codium_settings="$config_root/VSCodium/User/settings.json"
 has_code=false
 has_codium=false
-if command -v code >/dev/null 2>&1 || [[ -d "$(dirname "$vscode_settings")" ]]; then
+if command -v code >/dev/null 2>&1 || [[ -d "$(dirname -- "$code_settings")" ]]; then
   has_code=true
 fi
-if command -v codium >/dev/null 2>&1 || [[ -d "$(dirname "$codium_settings")" ]]; then
+if command -v codium >/dev/null 2>&1 || [[ -d "$(dirname -- "$codium_settings")" ]]; then
   has_codium=true
 fi
-if [[ "$has_code" == false && "$has_codium" == false ]]; then
-  has_code=true
-fi
 
-if [[ "$has_code" == true ]]; then
-  backup_and_copy "$repo_root/vscode/settings.json" "$vscode_settings"
-fi
-if [[ "$has_codium" == true ]]; then
-  backup_and_copy "$repo_root/vscode/settings.json" "$codium_settings"
-fi
-backup_and_copy "$repo_root/emacs/init.el" "$emacs_init"
+# Default to VS Code when neither editor is installed yet.
+if [[ "$has_code" == false && "$has_codium" == false ]]; then has_code=true; fi
 
-install_extensions() {
-  local cli="$1"
-  local editor="$2"
+install_editor() {
+  local settings="$1" cli="$2" extension
+  install_config "$repo_root/vscode/settings.json" "$settings"
   if ! command -v "$cli" >/dev/null 2>&1; then
-    echo "The $cli command was not found. Open $editor and install extensions listed in vscode/extensions.txt."
-    return 0
+    echo "Install extensions from vscode/extensions.txt once $cli is on PATH."
+    return
   fi
-  while IFS= read -r extension; do
+  while IFS= read -r extension || [[ -n "$extension" ]]; do
+    extension="${extension%$'\r'}"
     [[ -z "$extension" || "$extension" == \#* ]] && continue
-    "$cli" --install-extension "$extension" || echo "$editor could not install extension: $extension" >&2
+    "$cli" --install-extension "$extension" || echo "Could not install extension: $extension" >&2
   done < "$repo_root/vscode/extensions.txt"
 }
 
-if [[ "$has_code" == true ]]; then
-  install_extensions code 'VS Code'
-fi
-if [[ "$has_codium" == true ]]; then
-  install_extensions codium VSCodium
-fi
+if [[ "$has_code" == true ]]; then install_editor "$code_settings" code; fi
+if [[ "$has_codium" == true ]]; then install_editor "$codium_settings" codium; fi
+install_config "$repo_root/emacs/init.el" "$HOME/.emacs.d/init.el"
 
-echo 'Dotfiles installation complete. Restart VS Code or VSCodium and Emacs to load the new settings.'
-
-if [[ -n "$temp_root" ]]; then
-  rm -rf "$temp_root"
-fi
+echo 'Done. Restart your editors to load the settings.'
